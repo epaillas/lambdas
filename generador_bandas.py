@@ -21,7 +21,7 @@ margen, costo_remesa=3.52, costo_interes=0.025):
 
     return L, Z, U
 
-def contar_remesas(saldo_apertura, L, Z, U):
+def contar_remesas(flujo, saldo_inicial, L, Z, U):
     """
     Para un set de cotas L y U,
     cuenta el número de remesas que se hubieran
@@ -29,8 +29,9 @@ def contar_remesas(saldo_apertura, L, Z, U):
     aplicado estos límites.
     """
     num_remesas = 0
-    for j in range(len(saldo_apertura)):
-        saldo = saldo_apertura[j]
+    saldo = saldo_inicial
+    for i in range(len(flujo)):
+        saldo += flujo[i]
         if saldo < L:
             saldo = Z
             num_remesas += 1
@@ -111,6 +112,6 @@ for i in cod_sucursal:
 # y guardar a un archivo csv
 df_bandas = pd.DataFrame(np.asarray(bandas_total),
             columns=['lambda1', 'lambda2', 'lambda3', 'L', 'Z', 'U', 'num_remesas'])
-            
+
 outfile_name = 'bandas_sucursales.csv'
 df_bandas.to_csv(outfile_name, index=False)
