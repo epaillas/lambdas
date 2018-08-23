@@ -5,7 +5,7 @@ workfile = pd.read_csv('totalWorkFile.csv')
 sucursales_activas = pd.read_csv('SucursalesActivas.csv')
 margenes = pd.read_csv('Margenes.csv')
 
-def generar_bandas(lambda1, lambda2, lambda3, promedio_stock, sigma_stock,
+def generar_bandas(lambda1, lambda2, lambda3, apertura,
 margen, costo_remesa=3.52, costo_interes=0.025):
     """
     Genera las recomendaciones de cotas
@@ -14,14 +14,14 @@ margen, costo_remesa=3.52, costo_interes=0.025):
     a mantener en cada sucursal, dado
     un set de parámetros "lambda".
     """
-    L = lambda1 * sigma_stock + promedio_stock
-    Z = L + lambda2 * ((3 * costo_remesa * sigma_stock ** 2) /
+    L = lambda1 * np.std(apertura) + np.mean(apertura)
+    Z = L + lambda2 * ((3 * costo_remesa * np.std(apertura) ** 2) /
     (4 * costo_interes)) ** (1 / 3)
     U = 3 * Z * lambda3 - 2 * L
 
     return L, Z, U
 
-def contar_remesas(flujo, saldo_inicial, L, Z, U):
+def contar_remesas(flujo, apertura, L, Z, U):
     """
     Para un set de cotas L y U,
     cuenta el número de remesas que se hubieran
@@ -29,7 +29,7 @@ def contar_remesas(flujo, saldo_inicial, L, Z, U):
     aplicado estos límites.
     """
     num_remesas = 0
-    saldo = saldo_inicial
+    saldo = apertura[0]
     for i in range(len(flujo)):
         saldo += flujo[i]
         if saldo < L:
@@ -41,9 +41,9 @@ def contar_remesas(flujo, saldo_inicial, L, Z, U):
     return num_remesas
 
 # Espacio de parámetros a explorar
-lambda1_list = np.linspace(-20, 20, 50)
-lambda2_list = np.linspace(-20, 20, 50)
-lambda3_list = np.linspace(-20, 20, 50)
+lambda1_list = np.linspace(-20, 20, 20)
+lambda2_list = np.linspace(-20, 20, 20)
+lambda3_list = np.linspace(-20, 20, 20)
 
 # Lista en donde se guardarán la bandas óptimos para
 # cada sucursal
@@ -53,20 +53,14 @@ bandas_total = []
 cod_sucursal = sucursales_activas['Sucursal'].values
 for i in cod_sucursal:
     print('Calculando bandas para sucursal: ' + str(i), end='\r')
+
     # Filtrar datos, no considerar años 2017 ni 2018
     df = workfile.loc[(workfile['Sucursal'] == i)
                     & (workfile['Year'] != 2017)
                     & (workfile['Year'] != 2018)]
 
     bandas_sucursal = []
-
-    # Calcular promedio y desviación estándar del saldo diario,
-    # para usar en cálculo de bandas óptimas
-    apertura = df['SaldoApertura'].values
-    UF = df['UF'].values
-    apertura_UF = apertura / UF
-    promedio_stock = np.mean(apertura_UF)
-    sigma_stock = np.std(apertura_UF)
+    apertura = df['SaldoApertura'].values / df['UF'].values
 
     # Margen de dinero máximo que está asegurado en cada
     # sucursal. Se usará para calcular la banda inferior óptima
@@ -83,19 +77,19 @@ for i in cod_sucursal:
 
                 # Calcular las bandas óptimas para esta combinación de lambdas
                 L, Z, U = generar_bandas(lambda1=lambda1, lambda2=lambda2, lambda3=lambda3,
-                promedio_stock=promedio_stock, sigma_stock=sigma_stock, margen=margen)
+                apertura=apertura, margen=margen)
 
                 # Relaciones y restricciones que deben cumplir las bandas óptimas
                 restricciones = (L < Z < U) & (L > 0) & (Z - L < U - Z) & (U < 1.3 * margen)
 
                 # Si la combinación de lambdas cumple las restricciones, calcular
-                # el número de remesas que habría que realizar en el año de prueba
+                # el número de remesas que habría que realizar en el año horizonte
                 # (2017), de aplicarse estas bandas óptimas
                 if restricciones:
-                    df_horizonte = workfile.loc[(workfile['Sucursal'] == i)
-                                    & (workfile['Year'] != 2017)]
-                    apertura_horizonte = df_horizonte['SaldoApertura'] / df_horizonte['UF']
-                    num_remesas = contar_remesas(apertura_horizonte.values, L, Z, U)
+                    df_horizonte = workfile.loc[(workfile['Sucursal'] == i) & (workfile['Year'] == 2017)]
+                    apertura_horizonte = df_horizonte['SaldoApertura'].values / df_horizonte['UF'].values
+                    flujo_horizonte = df_horizonte['SaldoApertura'].values / df_horizonte['UF'].values
+                    num_remesas = contar_remesas(flujo=flujo_horizonte, apertura=apertura_horizonte, L=L, Z=Z, U=Z)
                     bandas_sucursal.append([lambda1, lambda2, lambda3, L, Z, U, num_remesas])
 
     # De todas las posibles combinaciones de lambdas que minimizan el
