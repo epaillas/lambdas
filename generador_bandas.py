@@ -41,9 +41,9 @@ def contar_remesas(flujo, apertura, L, Z, U):
     return num_remesas
 
 # Espacio de parámetros a explorar
-lambda1_list = np.linspace(-20, 20, 20)
-lambda2_list = np.linspace(-20, 20, 20)
-lambda3_list = np.linspace(-20, 20, 20)
+lambda1 = np.random.normal(loc=1.0, scale=5.0, size=50)
+lambda2 = np.random.normal(loc=1.0, scale=5.0, size=50)
+lambda3 = np.random.normal(loc=1.0, scale=5.0, size=50)
 
 # Lista en donde se guardarán la bandas óptimos para
 # cada sucursal
